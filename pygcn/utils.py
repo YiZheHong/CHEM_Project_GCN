@@ -5,105 +5,102 @@ import GN
 import random
 import torch
 
-global batch
-batch = []
 
-def encode_onehot(labels):
-    classes = set(labels)
-    classes_dict = {c: np.identity(len(classes))[i, :] for i, c in
-                    enumerate(classes)}
-    labels_onehot = np.array(list(map(classes_dict.get, labels)),
-                             dtype=np.int32)
-    return labels_onehot
 
 def load_graph_data(graph):
-    idx = np.array([int(i.num) for i in graph.chems], dtype=np.int32)
-    idx_map = {j: i for i, j in enumerate(idx)}
-    edges = np.array([j[0] for j in graph.edges])
-    features = sp.csr_matrix([node.feature for node in graph.chems],dtype=np.float32)
+    features = [[graph.charge],[graph.num_of_chem],[graph.M],[graph.Vib],[graph.Dis],[graph.num_edges / graph.num_of_chem],[graph.sum_dist / graph.num_of_chem]]
+    features = sp.csr_matrix(features,dtype=np.float32)
     adj = torch.from_numpy(graph.A_sc)
-
-
     # features = normalize(features)
-
     adj = normalize(adj + torch.eye(adj.shape[0]))
-
-    idx_train = range(140)
-    idx_val = range(200, 500)
-    idx_test = range(500, 1500)
     features = torch.FloatTensor(np.array(features.todense()))
     adj = torch.from_numpy(adj)
     # adj = sparse_mx_to_torch_sparse_tensor(adj)
-    idx_train = torch.LongTensor(idx_train)
-    idx_val = torch.LongTensor(idx_val)
-    idx_test = torch.LongTensor(idx_test)
-
     return adj, features
 
-def load_graph_label(path="../GCN_data.csv", seed=5):
-    print('loading data from', path)
-    data = []
-    max_node = 0
-    with open(path, 'r') as read_obj:
-        # pass the file object to reader() to get the reader object
-        csv_reader = reader(read_obj)
+def DataLoader(A,F,L,train_index, valid_index, test_index,train_batchSize):
+    loader = {}
+    for indexs,name in zip([train_index,valid_index,test_index],['train_loader','valid_loader','test_loader']):
+        a_batches = []
+        f_batches = []
+        y_true_batches = []
+        aBatch = []
+        fBatch = []
+        yBatch = []
+        print(name,len(indexs))
+        for i in range(len(indexs)):
+            index = indexs[i]
+            aBatch.append(A[index])
+            fBatch.append(F[index])
+            yBatch.append(L[index])
+            if len(aBatch) == 12:
+                a_batches.append(aBatch)
+                f_batches.append(fBatch)
+                y_true_batches.append(yBatch)
+                aBatch = []
+                fBatch = []
+                yBatch = []
+            if i == len(indexs)-1:
+                a_batches.append(aBatch)
+                f_batches.append(fBatch)
+                y_true_batches.append(yBatch)
+                aBatch = []
+                fBatch = []
+                yBatch = []
+        loader[name]={'A':a_batches,'F':f_batches,'Y':y_true_batches}
+    return loader
 
-        # Iterate over each row in the csv using reader object
+def load_dataset(data_location):
+    data = []
+    A = []
+    F = []
+    max_node = 7
+    with open(data_location, 'r') as read_obj:
+        csv_reader = reader(read_obj)
         j = 0
         for row in csv_reader:
             if j != 0:
                 data.append(row)
-                if len(row) - 3 > max_node:
-                    max_node = len(row) - 3
             j += 1
-    random.seed(seed)
-    random.shuffle(data)
+    Graph_Data = [GN.Graph(graph, max_node) for graph in data]
+    labels = [torch.FloatTensor([graph.y_value]) for graph in Graph_Data]
+    for graph in Graph_Data:
+        adj, features = load_graph_data(graph)
+        A.append(adj)
+        F.append(features)
+    return A,F,labels
 
-    l = [GN.Graph(graph, max_node) for graph in data]
-    labels = np.array([graph.y_value for graph in l])
-    labels = torch.FloatTensor(labels)
-    return labels
+def fold_data(Graph_Data):
+    num_fold = 199
+    folded_data = [Graph_Data[i:i + num_fold] for i in range(0, len(Graph_Data), num_fold)]
+    folded_labels = [Graph_Data[i:i + num_fold] for i in range(0, len(Graph_Data), num_fold)]
+    for i in range(0, len(folded_labels)):
+        folded_labels[i] = torch.FloatTensor(np.array([graph.y_value for graph in folded_labels[i]]))
+    return folded_data,folded_labels,num_fold
 
-
-def load_data(path="../data/cora/", dataset="cora"):
-    """Load citation network dataset (cora only for now)"""
-    print('Loading {} dataset...'.format(dataset))
-
-
-    idx_features_labels = np.genfromtxt("{}{}.content".format(path, dataset),
-                                        dtype=np.dtype(str))
-
-    features = sp.csr_matrix(idx_features_labels[:, 1:-1], dtype=np.float32)
-    labels = encode_onehot(idx_features_labels[:, -1])
-    # build graph
-
-    idx = np.array(idx_features_labels[:, 0], dtype=np.int32)
-    idx_map = {j: i for i, j in enumerate(idx)}
-    edges_unordered = np.genfromtxt("{}{}.cites".format(path, dataset),
-                                    dtype=np.int32)
-    edges = np.array(list(map(idx_map.get, edges_unordered.flatten())),
-                     dtype=np.int32).reshape(edges_unordered.shape)
-    adj = sp.coo_matrix((np.ones(edges.shape[0]), (edges[:, 0], edges[:, 1])),
-                        shape=(labels.shape[0], labels.shape[0]),
-                        dtype=np.float32)
-    # build symmetric adjacency matrix
-    adj = adj + adj.T.multiply(adj.T > adj) - adj.multiply(adj.T > adj)
-    features = normalize(features)
-    adj = normalize(adj + sp.eye(adj.shape[0]))
-
-    idx_train = range(140)
-    idx_val = range(200, 500)
-    idx_test = range(500, 1500)
-    features = torch.FloatTensor(np.array(features.todense()))
-    labels = torch.LongTensor(np.where(labels)[1])
-    adj = sparse_mx_to_torch_sparse_tensor(adj)
-    idx_train = torch.LongTensor(idx_train)
-    idx_val = torch.LongTensor(idx_val)
-    idx_test = torch.LongTensor(idx_test)
-
-    return adj, features, labels, idx_train, idx_val, idx_test
-
-
+def formValid():
+        d = {'2': 24, '3': 91, '4': 260, '5': 316, '6': 627, '7': 477}
+        nums = [3, 17, 47, 60, 117, 90]
+        bot = 0
+        top = 0
+        valid = []
+        for key, num in zip(d, nums):
+            top += d[key]
+            l = random.Random(5).sample(range(bot, top), k=num)
+            valid.extend(l)
+            bot = top
+        return valid
+def get_idx_split(data_size):
+        split_dicts = []
+        val_idx = formValid()
+        train_idx = [i for i in range(1795) if i not in val_idx]
+        test_idx = range(1795,data_size)
+        random.Random(4).shuffle(train_idx)
+        print(len(train_idx),len(val_idx))
+        for val in range(0, 1):
+            split_dict = {'train': train_idx, 'valid': val_idx, 'test': test_idx}
+            split_dicts.append(split_dict)
+        return split_dicts
 def normalize(mx):
     """Row-normalize sparse matrix"""
 
@@ -113,13 +110,6 @@ def normalize(mx):
     r_mat_inv = np.diag(r_inv)
     mx = r_mat_inv.dot(mx)
     return mx
-
-
-def accuracy(output, labels):
-    preds = output.max(1)[1].type_as(labels)
-    correct = preds.eq(labels).double()
-    correct = correct.sum()
-    return correct / len(labels)
 
 
 def sparse_mx_to_torch_sparse_tensor(sparse_mx):
