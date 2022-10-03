@@ -8,13 +8,13 @@ import torch
 
 
 def load_graph_data(graph):
-    features = [[graph.charge],[graph.num_of_chem],[graph.M],[graph.Vib],[graph.Dis],[graph.num_edges / graph.num_of_chem],[graph.sum_dist / graph.num_of_chem]]
+    features = [[graph.charge],[graph.num_of_chem],[graph.Dis],[graph.num_edges / graph.num_of_chem],[graph.sum_dist / graph.num_of_chem],[0],[0]]
     features = sp.csr_matrix(features,dtype=np.float32)
     adj = torch.from_numpy(graph.A_sc)
     # features = normalize(features)
-    adj = normalize(adj + torch.eye(adj.shape[0]))
+    # adj = normalize(adj + torch.eye(adj.shape[0]))
     features = torch.FloatTensor(np.array(features.todense()))
-    adj = torch.from_numpy(adj)
+    # adj = torch.from_numpy(adj)
     # adj = sparse_mx_to_torch_sparse_tensor(adj)
     return adj, features
 
@@ -33,7 +33,7 @@ def DataLoader(A,F,L,train_index, valid_index, test_index,train_batchSize):
             aBatch.append(A[index])
             fBatch.append(F[index])
             yBatch.append(L[index])
-            if len(aBatch) == 12:
+            if len(aBatch) == train_batchSize:
                 a_batches.append(aBatch)
                 f_batches.append(fBatch)
                 y_true_batches.append(yBatch)

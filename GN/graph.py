@@ -58,15 +58,17 @@ class Graph:
         return dist
     def make_edges(self,a,b):
         dist = self.distance(a,b)
-        if dist<=3:
+        if dist<=4:
             edge = [a.num, b.num,dist]
             return edge
         return None
     def make_A_sc_matrix(self):
         for edge in self.edges:
             if edge[0] != edge[1]:
-                self.A_sc[edge[0], edge[1]] = self.similarity(edge)
-                self.A_sc[edge[1], edge[0]] = self.similarity(edge)
+                self.A_sc[edge[0], edge[1]] = edge[2]
+                self.A_sc[edge[1], edge[0]] = edge[2]
+        for i in range(self.num_of_chem):
+            self.A_sc[i, i] = 1
 
 
 

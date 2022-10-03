@@ -39,7 +39,7 @@ if __name__ == '__main__':
                     dropout=0.5)
         run3d = run()
         run3d.run(curr_fold, modleName, device,A,F,L,train_index, valid_index, test_index, model, loss_func,
-                  evaluation, epochs=20,batch_size=12, vt_batch_size=12, lr=0.00055)
+                  evaluation, epochs=100,batch_size=12, vt_batch_size=12, lr=0.00755)
         curr = start - time.time()
         best_tests.append(round(run3d.best_test, 2))
         best_trains.append(round(run3d.best_train, 2))
