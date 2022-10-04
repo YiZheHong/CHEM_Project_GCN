@@ -45,5 +45,5 @@ if __name__ == '__main__':
         best_trains.append(round(run3d.best_train, 2))
         best_valids.append(round(run3d.best_valid, 2))
         writetxt(best_trains, best_valids, best_tests, curr, save_location)
-
-
+    # 
+    # 

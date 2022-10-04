@@ -64,8 +64,10 @@ def load_dataset(data_location):
             j += 1
     Graph_Data = [GN.Graph(graph, max_node) for graph in data]
     labels = [torch.FloatTensor([graph.y_value]) for graph in Graph_Data]
-    for graph in Graph_Data:
+    for graph in Graph_Data[900:901]:
         adj, features = load_graph_data(graph)
+        print(graph.edges)
+        print(adj)
         A.append(adj)
         F.append(features)
     return A,F,labels
@@ -103,7 +105,6 @@ def get_idx_split(data_size):
         return split_dicts
 def normalize(mx):
     """Row-normalize sparse matrix"""
-
     rowsum = np.array(mx.sum(1))
     r_inv = np.power(rowsum, -1).flatten()
     r_inv[np.isinf(r_inv)] = 0

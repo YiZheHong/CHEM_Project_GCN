@@ -17,8 +17,6 @@ class Graph:
         self.sum_dist = 0
         self.A_sc = np.zeros((max_node,max_node),dtype=np.float32)
         self.A = np.zeros((max_node,max_node),dtype=np.float32)
-        self.D_sc = np.zeros((max_node, max_node),dtype=np.float32)
-        self.D = np.zeros((max_node, max_node),dtype=np.float32)
         for i in range(int(self.num_of_chem)):
             chem = list[6+i][1:len(list[6+i])-1].replace("'",'').replace(" ",'').split(',')
             self.chems.append(self.make_Chems(chem,i))
@@ -36,9 +34,6 @@ class Graph:
                                 self.sum_dist += edge[2]
         self.make_A_matrix()
         self.make_A_sc_matrix()
-        self.make_D_matrix()
-        self.make_D_sc_matrix()
-        self.DAD = self.normalize(self.D_sc,self.A_sc)
         self.num_edges = len(self.edges)
 
     def containEdge(self,e1):
@@ -52,21 +47,22 @@ class Graph:
     def distance(self,a,b):
         p1 = np.array([a.x, a.y, a.z])
         p2 = np.array([b.x, b.y, b.z])
-
         squared_dist = np.sum((p1 - p2) ** 2, axis=0)
         dist = np.sqrt(squared_dist)
         return dist
+    
     def make_edges(self,a,b):
         dist = self.distance(a,b)
         if dist<=4:
             edge = [a.num, b.num,dist]
             return edge
         return None
+    
     def make_A_sc_matrix(self):
         for edge in self.edges:
             if edge[0] != edge[1]:
-                self.A_sc[edge[0], edge[1]] = edge[2]
-                self.A_sc[edge[1], edge[0]] = edge[2]
+                self.A_sc[edge[0], edge[1]] = self.similarity(edge)
+                self.A_sc[edge[1], edge[0]] = self.similarity(edge)
         for i in range(self.num_of_chem):
             self.A_sc[i, i] = 1
 
@@ -78,31 +74,13 @@ class Graph:
                 self.A[edge[0],edge[1]]=self.similarity(edge)
                 self.A[edge[1], edge[0]] = self.similarity(edge)
 
-    def make_D_sc_matrix(self):
-        for i in range(0,self.num_of_chem):
-            d = 0
-            for c in self.A_sc[i, :]:
-                if c != 0:
-                    d+=1
-            d+=1 #self_connected
-            self.D_sc[i,i]=d
-
-
-
-    def make_D_matrix(self):
-        for i in range(0, self.num_of_chem):
-            d = 0
-            for c in self.A[i, :]:
-                if c != 0:
-                    d += 1
-            self.D[i, i] = d
 
 
     def similarity(self,edge):
         dis = float(edge[2])
         if dis == 0:
             return 1
-        return round(1/(dis**2),7)
+        return round(1/(dis**2),2)
 
     def normalize(self,D,A):
         x = D.copy()
