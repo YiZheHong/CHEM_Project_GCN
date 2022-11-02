@@ -31,7 +31,7 @@ class GraphConvolution(Module):
     def forward(self, input, adj):
         # print(input.shape)
         # print(self.weight.shape)
-
+        # print('A',adj.shape)
         support = torch.mm(input, self.weight)
         # print(support.dtype)
         output = torch.mm(adj, support)

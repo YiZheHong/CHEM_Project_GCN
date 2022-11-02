@@ -8,7 +8,7 @@ import torch
 
 
 def load_graph_data(graph):
-    features = [[graph.charge],[graph.num_of_chem],[graph.Dis],[graph.num_edges / graph.num_of_chem],[graph.sum_dist / graph.num_of_chem],[0],[0]]
+    features = [graph.charge,graph.num_of_chem,graph.Dis,graph.num_edges / graph.num_of_chem,graph.sum_dist / graph.num_of_chem,graph.Vib]
     features = sp.csr_matrix(features,dtype=np.float32)
     adj = torch.from_numpy(graph.A_sc)
     # features = normalize(features)
@@ -40,7 +40,7 @@ def DataLoader(A,F,L,train_index, valid_index, test_index,train_batchSize):
                 aBatch = []
                 fBatch = []
                 yBatch = []
-            if i == len(indexs)-1:
+            elif i == len(indexs)-1:
                 a_batches.append(aBatch)
                 f_batches.append(fBatch)
                 y_true_batches.append(yBatch)
@@ -50,7 +50,7 @@ def DataLoader(A,F,L,train_index, valid_index, test_index,train_batchSize):
         loader[name]={'A':a_batches,'F':f_batches,'Y':y_true_batches}
     return loader
 
-def load_dataset(data_location):
+def load_dataset(data_location,shuffle = False):
     data = []
     A = []
     F = []
@@ -63,23 +63,38 @@ def load_dataset(data_location):
                 data.append(row)
             j += 1
     Graph_Data = [GN.Graph(graph, max_node) for graph in data]
+    if shuffle:
+        random.Random(4).shuffle(Graph_Data)
     labels = [torch.FloatTensor([graph.y_value]) for graph in Graph_Data]
-    for graph in Graph_Data[900:901]:
+    for graph in Graph_Data:
         adj, features = load_graph_data(graph)
-        print(graph.edges)
-        print(adj)
         A.append(adj)
         F.append(features)
     return A,F,labels
 
-def fold_data(Graph_Data):
-    num_fold = 199
-    folded_data = [Graph_Data[i:i + num_fold] for i in range(0, len(Graph_Data), num_fold)]
-    folded_labels = [Graph_Data[i:i + num_fold] for i in range(0, len(Graph_Data), num_fold)]
-    for i in range(0, len(folded_labels)):
-        folded_labels[i] = torch.FloatTensor(np.array([graph.y_value for graph in folded_labels[i]]))
-    return folded_data,folded_labels,num_fold
-
+def cross_valid(folds):
+    split_idxs = []
+    last = False
+    for i in range(len(folds)):
+        train = []
+        valid = folds[i]
+        if i+1 < len(folds):
+            test = folds[i+1]
+        else:
+            last = True
+            test = folds[0]
+        for j in range(len(folds)):
+            if last != True:
+                if j != i and j != i + 1:
+                    for idx in folds[j]:
+                        train.append(idx)
+            else:
+                if j != i and j != 0:
+                    for idx in folds[j]:
+                        train.append(idx)
+        dic = {'train':train,'valid':valid,'test':test}
+        split_idxs.append(dic)
+    return split_idxs
 def formValid():
         d = {'2': 24, '3': 91, '4': 260, '5': 316, '6': 627, '7': 477}
         nums = [3, 17, 47, 60, 117, 90]
@@ -91,18 +106,33 @@ def formValid():
             l = random.Random(5).sample(range(bot, top), k=num)
             valid.extend(l)
             bot = top
+        print(valid[:5])
         return valid
-def get_idx_split(data_size):
+def get_idx_split(data_size,shuffle = True):
         split_dicts = []
         val_idx = formValid()
         train_idx = [i for i in range(1795) if i not in val_idx]
         test_idx = range(1795,data_size)
-        random.Random(4).shuffle(train_idx)
+        if shuffle:
+            random.Random(4).shuffle(train_idx)
         print(len(train_idx),len(val_idx))
         for val in range(0, 1):
             split_dict = {'train': train_idx, 'valid': val_idx, 'test': test_idx}
             split_dicts.append(split_dict)
         return split_dicts
+
+
+def get_idx_split_noValid(data_size,shuffle = True):
+    split_dicts = []
+    train_idx = [i for i in range(1795)]
+    test_idx = range(1795, data_size)
+    if shuffle:
+        random.Random(4).shuffle(train_idx)
+    for val in range(0, 1):
+        split_dict = {'train': train_idx, 'valid': [], 'test': test_idx}
+        split_dicts.append(split_dict)
+    return split_dicts
+
 def normalize(mx):
     """Row-normalize sparse matrix"""
     rowsum = np.array(mx.sum(1))

@@ -15,22 +15,29 @@ class run():
 
     def __init__(self):
         pass
-    def record(self):
-        loc = f'./modelPerformance/2129Data/{self.modelName}_fold{self.fold+1}'
-        train_loc = loc+'_train'
-        valid_loc = loc+'_valid'
-        test_loc = loc+'_test'
-        with open(train_loc+"Loss.txt", 'w') as f:
+    def record(self,save_location,loc):
+        Lossloc = save_location+f'LossRecord/{loc}'+f'_fold{self.fold+1}'
+        Resultloc = save_location+f'ResultRecord/{loc}'+f'_fold{self.fold+1}'
+
+        loss_train_loc = Lossloc+'_train'
+        loss_valid_loc = Lossloc+'_valid'
+        loss_test_loc = Lossloc+'_test'
+        result_train_loc = Resultloc + '_train'
+        result_valid_loc = Resultloc + '_valid'
+        result_test_loc = Resultloc + '_test'
+        with open(loss_train_loc+"Loss.txt", 'w') as f:
             f.write(str(self.train_loss))
-        with open(valid_loc+"Loss.txt", 'w') as f:
+        with open(loss_valid_loc+"Loss.txt", 'w') as f:
             f.write(str(self.valid_loss))
-        with open(test_loc+"Loss.txt", 'w') as f:
+        with open(loss_test_loc+"Loss.txt", 'w') as f:
             f.write(str(self.test_loss))
-        self.validDf.to_csv(valid_loc+"Result.csv",encoding='utf-8', index=False)
-        self.testDf.to_csv(test_loc+"Result.csv",encoding='utf-8', index=False)
+        self.trainDf.to_csv(result_train_loc+"Result.csv",encoding='utf-8', index=False)
+        self.validDf.to_csv(result_valid_loc+"Result.csv",encoding='utf-8', index=False)
+        self.testDf.to_csv(result_test_loc+"Result.csv",encoding='utf-8', index=False)
+
 
     def run(self, curr_fold, modelName, device,A,F,L,train_index, valid_index, test_index, model, loss_func,
-                  evaluation, epochs=20,batch_size=12, vt_batch_size=12, lr=0.00055,weight_decay=0):
+                  evaluation,save_location,loc, epochs=20,batch_size=12, vt_batch_size=12, lr=0.00055,weight_decay=0):
         self.fold = curr_fold
         self.modelName = modelName
         self.train_loss = []
@@ -53,10 +60,11 @@ class run():
         self.best_test = float('inf')
 
         for epoch in range(1, epochs + 1):
-            print("\n=====Epoch {}".format(epoch), flush=True)
+            if epoch % 10 == 0:
+                print("\n=====Epoch {}".format(epoch), flush=True)
 
             # print('\nTraining...', flush=True)
-            train_mae = self.train(model, train_loader,optimizer, loss_func, device,evaluation)
+            train_mae,trdf = self.train(model, train_loader,optimizer, loss_func, device,evaluation)
             self.train_loss.append(train_mae)
 
             # print('\n\nEvaluating...', flush=True)
@@ -68,15 +76,20 @@ class run():
             self.test_loss.append(test_mae)
 
             # print()
-            print({'Train': train_mae, 'Validation': valid_mae, 'Test': test_mae})
+            if epoch % 10 == 0:
+                # print({'Train': train_mae, 'Validation': valid_mae, 'Test': test_mae})
+                print({'Train': train_mae, 'Test': test_mae})
+
             if valid_mae < self.best_valid:
+            # if test_mae < self.best_test:
                 self.best_valid = valid_mae
                 self.best_test = test_mae
                 self.best_train = train_mae
                 self.validDf = vDf
                 self.testDf = tDf
+                self.trainDf = trdf
 
-        self.record()
+        self.record(save_location,loc)
         print(f'Best validation RMSE so far: {self.best_valid}')
         print(f'Test RMSE when got best validation result: {self.best_test}')
 
@@ -104,7 +117,7 @@ class run():
             optimizer.zero_grad()
             MSE_total = 0
             for data in range(len(aBatch)):
-                out = model(fBatch[data],aBatch[data])
+                out = model(aBatch[data],aBatch[data],fBatch[data])
                 MSE_loss = loss_func(out, yBatch[data])
                 MSE_total+=MSE_loss
                 trues.append(round(yBatch[data].item(), 2))
@@ -114,7 +127,9 @@ class run():
             RMSE_loss.backward()
             optimizer.step()
             loss_accum += MSE_total
-        return np.sqrt(loss_accum.item() / len(train_loader['A']))
+        dic = {"y_true": trues, "y_pred": preds}
+        df = pd.DataFrame.from_dict(dic)
+        return np.sqrt(loss_accum.item() / len(train_loader['A'])),df
 
     def val(self, model, data_loader,evaluation, device):
         model.eval()
@@ -124,7 +139,7 @@ class run():
 
         for aBatch,fBatch,yBatch in zip(data_loader['A'],data_loader['F'],data_loader['Y']):
             for data in range(len(aBatch)):
-                out = model(fBatch[data], aBatch[data])
+                out = model(aBatch[data], aBatch[data],fBatch[data])
                 preds.append(out)
                 targets.append(yBatch[data])
         input_dict = {"y_true": torch.Tensor(targets), "y_pred": torch.Tensor(preds)}

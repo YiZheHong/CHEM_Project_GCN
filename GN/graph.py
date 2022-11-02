@@ -53,7 +53,7 @@ class Graph:
     
     def make_edges(self,a,b):
         dist = self.distance(a,b)
-        if dist<=4:
+        if dist<=3:
             edge = [a.num, b.num,dist]
             return edge
         return None
@@ -65,7 +65,6 @@ class Graph:
                 self.A_sc[edge[1], edge[0]] = self.similarity(edge)
         for i in range(self.num_of_chem):
             self.A_sc[i, i] = 1
-
 
 
     def make_A_matrix(self):
@@ -82,14 +81,6 @@ class Graph:
             return 1
         return round(1/(dis**2),2)
 
-    def normalize(self,D,A):
-        x = D.copy()
-        for i in range(0,self.max):
-            if x[i,i] != 0:
-                x[i,i] = 1/x[i,i]
-        D2 = np.sqrt(x)
-        DAD = D2.dot(A).dot(D2)
-        return DAD
     def __str__(self):
         return str(self.y_value)+', '+str(self.charge)+', '+str(self.num_of_chem)
     def chems_toString(self):
