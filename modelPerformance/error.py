@@ -15,8 +15,8 @@ def mae(y_true,y_pred):
 
 for model in models:
     for tag in tags:
-        for i in range(1,6):
-            loc = f'./2129Data/ResultRecord/GCN_32_16_128_fold{i}_{tag}Result.csv'
+        for i in range(1,2):
+            loc = f'./2129Data_MSE/ResultRecord/GCN_32_16_128_fold{i}_{tag}Result.csv'
             df = pd.read_csv(loc)
             dic[model+'_'+tag+'_'+str(i)]=[mse(df['y_true'],df['y_pred']),mae(df['y_true'],df['y_pred']),rmse(df['y_true'],df['y_pred'])]
 print(dic)

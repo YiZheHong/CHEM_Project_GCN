@@ -27,12 +27,13 @@ class run():
         result_test_loc = Resultloc + '_test'
         with open(loss_train_loc+"Loss.txt", 'w') as f:
             f.write(str(self.train_loss))
-        with open(loss_valid_loc+"Loss.txt", 'w') as f:
-            f.write(str(self.valid_loss))
+        
         with open(loss_test_loc+"Loss.txt", 'w') as f:
             f.write(str(self.test_loss))
         self.trainDf.to_csv(result_train_loc+"Result.csv",encoding='utf-8', index=False)
-        self.validDf.to_csv(result_valid_loc+"Result.csv",encoding='utf-8', index=False)
+        # with open(loss_valid_loc+"Loss.txt", 'w') as f:
+        #     f.write(str(self.valid_loss))
+        # self.validDf.to_csv(result_valid_loc+"Result.csv",encoding='utf-8', index=False)
         self.testDf.to_csv(result_test_loc+"Result.csv",encoding='utf-8', index=False)
 
 
@@ -52,7 +53,7 @@ class run():
         optimizer = Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         loader = DataLoader(A,F,L,train_index, valid_index, test_index,batch_size)
         train_loader = loader['train_loader']
-        valid_loader = loader['valid_loader']
+        # valid_loader = loader['valid_loader']
         test_loader = loader['test_loader']
 
 
@@ -68,8 +69,8 @@ class run():
             self.train_loss.append(train_mae)
 
             # print('\n\nEvaluating...', flush=True)
-            valid_mae,vDf = self.val(model, valid_loader,evaluation, device)
-            self.valid_loss.append(valid_mae)
+            # valid_mae,vDf = self.val(model, valid_loader,evaluation, device)
+            # self.valid_loss.append(valid_mae)
 
             # print('\n\nTesting...', flush=True)
             test_mae,tDf = self.val(model, test_loader, evaluation, device)
@@ -80,12 +81,12 @@ class run():
                 # print({'Train': train_mae, 'Validation': valid_mae, 'Test': test_mae})
                 print({'Train': train_mae, 'Test': test_mae})
 
-            if valid_mae < self.best_valid:
-            # if test_mae < self.best_test:
-                self.best_valid = valid_mae
+            # if valid_mae < self.best_valid:
+            if test_mae < self.best_test:
+                # self.best_valid = valid_mae
                 self.best_test = test_mae
                 self.best_train = train_mae
-                self.validDf = vDf
+                # self.validDf = vDf
                 self.testDf = tDf
                 self.trainDf = trdf
 
@@ -123,8 +124,9 @@ class run():
                 trues.append(round(yBatch[data].item(), 2))
                 preds.append(round(out.item(), 2))
             MSE_total /= len(aBatch)
-            RMSE_loss = torch.sqrt(MSE_total)
-            RMSE_loss.backward()
+            # RMSE_loss = torch.sqrt(MSE_total)
+            MSE_total.backward()
+            # RMSE_loss.backward()
             optimizer.step()
             loss_accum += MSE_total
         dic = {"y_true": trues, "y_pred": preds}
